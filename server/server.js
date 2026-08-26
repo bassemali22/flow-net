@@ -10,10 +10,10 @@ dotenv.config();
 const app = express();
 
 // 1. تفعيل الـ CORS بشكل صحيح
-app.use(cors());
-app.use(clerkMiddleware);
-// 2. تفعيل قراءة الـ JSON من الطلبات
 app.use(express.json());
+app.use(cors());
+// 2. تفعيل قراءة الـ JSON من الطلبات
+app.use(clerkMiddleware);
 
 // 3. ربط مسار Inngest بالشكل الصحيح (مع إضافة الشرطة المائلة /)
 app.use("/api/inngest", serve({ client: inngest, functions }));
