@@ -9,15 +9,20 @@ dotenv.config();
 
 const app = express();
 
-// 1. ربط مسار Inngest أولاً وقبل أي express.json لمنع تداخل الـ Body Parsing
+// 1. مسار Inngest لازم يكون في الأول خالص قبل أي middlewares تقرأ البودي أو تطلب مصادقة
 app.use("/api/inngest", serve({ client: inngest, functions }));
 
-// 2. تفعيل الـ CORS والـ JSON لباقي المسارات
+// 2. تفعيل الـ CORS والـ JSON لباقي الـ Routes العادية
 app.use(express.json());
 app.use(cors());
 
-// 3. تفعيل Middleware الخاص بـ Clerk
-app.use(clerkMiddleware());
+// 3. استثناء مسار Inngest تماماً من Clerk Middleware لمنع ظهور خطأ 401 Unauthorized
+app.use((req, res, next) => {
+  if (req.originalUrl.startsWith("/api/inngest")) {
+    return next();
+  }
+  return clerkMiddleware()(req, res, next);
+});
 
 // 4. راوت التجربة
 app.get("/", (req, res) => {
@@ -27,7 +32,7 @@ app.get("/", (req, res) => {
 // 5. الاتصال بقاعدة البيانات لـ Vercel Serverless
 ConnectDb().catch(console.error);
 
-// 6. تشغيل السيرفر محلياً
+// 6. تشغيل السيرفر محلياً (لو مش شغال في بيئة الإنتاج على Vercel)
 if (process.env.NODE_ENV !== "production") {
   const PORT = process.env.PORT || 4000;
   const startServer = async () => {
@@ -46,5 +51,5 @@ if (process.env.NODE_ENV !== "production") {
   startServer();
 }
 
-// 7. التصدير الأساسي الذي تطلبه منصة Vercel
+// 7. التصدير الأساسي لـ Vercel
 export default app;
