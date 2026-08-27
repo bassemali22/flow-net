@@ -20,50 +20,64 @@ app.use(
   serve({
     client: inngest,
     functions,
-  })
+  }),
 );
 
 // 2. مسار استقبال الـ Webhook من Clerk وتوثيقه عبر Svix
-app.post("/api/clerk-webhook", express.raw({ type: "application/json" }), async (req, res) => {
-  const SIGNING_SECRET = process.env.CLERK_WEBHOOK_SECRET;
+app.post(
+  "/api/clerk-webhook",
+  express.raw({ type: "application/json" }),
+  async (req, res) => {
+    const SIGNING_SECRET = process.env.CLERK_WEBHOOK_SECRET;
 
-  if (!SIGNING_SECRET) {
-    return res.status(500).json({ error: "Please add CLERK_WEBHOOK_SECRET to env variables" });
-  }
+    if (!SIGNING_SECRET) {
+      return res
+        .status(500)
+        .json({ error: "Please add CLERK_WEBHOOK_SECRET to env variables" });
+    }
 
-  const svix_id = req.headers["svix-id"];
-  const svix_timestamp = req.headers["svix-timestamp"];
-  const svix_signature = req.headers["svix-signature"];
+    const svix_id = req.headers["svix-id"];
+    const svix_timestamp = req.headers["svix-timestamp"];
+    const svix_signature = req.headers["svix-signature"];
 
-  if (!svix_id || !svix_timestamp || !svix_signature) {
-    return res.status(400).json({ error: "Error occurred -- no svix headers" });
-  }
+    if (!svix_id || !svix_timestamp || !svix_signature) {
+      return res
+        .status(400)
+        .json({ error: "Error occurred -- no svix headers" });
+    }
 
-  const body = req.body.toString();
-  const wh = new Webhook(SIGNING_SECRET);
-  let evt;
+    const body = req.body.toString();
+    const wh = new Webhook(SIGNING_SECRET);
+    let evt;
 
-  try {
-    evt = wh.verify(body, {
-      "svix-id": svix_id,
-      "svix-timestamp": svix_timestamp,
-      "svix-signature": svix_signature,
-    });
-  } catch (err) {
-    console.error("Error verifying webhook:", err);
-    return res.status(400).json({ success: false, message: err.message });
-  }
+    try {
+      evt = wh.verify(body, {
+        "svix-id": svix_id,
+        "svix-timestamp": svix_timestamp,
+        "svix-signature": svix_signature,
+      });
+    } catch (err) {
+      console.error("Error verifying webhook:", err);
+      return res.status(400).json({ success: false, message: err.message });
+    }
 
-  const eventType = evt.type;
-  if (eventType === "user.created" || eventType === "user.updated") {
-    await inngest.send({
-      name: `clerk/${eventType}`,
-      data: evt.data,
-    });
-  }
+    const eventType = evt.type;
 
-  return res.status(200).json({ success: true, message: "Webhook received" });
-});
+    // إرسال جميع الأحداث المدعومة (إنشاء، تحديث، وحذف) إلى Inngest
+    if (
+      eventType === "user.created" ||
+      eventType === "user.updated" ||
+      eventType === "user.deleted"
+    ) {
+      await inngest.send({
+        name: `clerk/${eventType}`,
+        data: evt.data,
+      });
+    }
+
+    return res.status(200).json({ success: true, message: "Webhook received" });
+  },
+);
 
 // 3. تفعيل الـ JSON لباقي الراوتات العادية
 app.use(express.json());
