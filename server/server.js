@@ -1,55 +1,104 @@
 import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
+import { Webhook } from "svix";
 import ConnectDb from "./config/ConnectDb.js";
 import { inngest, functions } from "./inngest/index.js";
 import { serve } from "inngest/express";
 import { clerkMiddleware } from "@clerk/express";
+
 dotenv.config();
 
 const app = express();
 
-// 1. مسار Inngest لازم يكون في الأول خالص قبل أي middlewares تقرأ البودي أو تطلب مصادقة
-app.use("/api/inngest", serve({ client: inngest, functions }));
-
-// 2. تفعيل الـ CORS والـ JSON لباقي الـ Routes العادية
-app.use(express.json());
+// تفعيل CORS أولاً لجميع المسارات
 app.use(cors());
 
-// 3. استثناء مسار Inngest تماماً من Clerk Middleware لمنع ظهور خطأ 401 Unauthorized
+// 1. مسار Inngest (يُعرف بـ serve مباشرة بدون أي body parser يسبقه)
+app.use(
+  "/api/inngest",
+  serve({
+    client: inngest,
+    functions,
+  }),
+);
+
+// 2. مسار استقبال الـ Webhook من Clerk (يستخدم express.raw لقراءة البودي الخام للتحقق من توقيع Svix)
+app.post(
+  "/api/clerk-webhook",
+  express.raw({ type: "application/json" }),
+  async (req, res) => {
+    const SIGNING_SECRET = process.env.CLERK_WEBHOOK_SECRET;
+
+    if (!SIGNING_SECRET) {
+      return res
+        .status(500)
+        .json({ error: "Please add CLERK_WEBHOOK_SECRET to env variables" });
+    }
+
+    const svix_id = req.headers["svix-id"];
+    const svix_timestamp = req.headers["svix-timestamp"];
+    const svix_signature = req.headers["svix-signature"];
+
+    if (!svix_id || !svix_timestamp || !svix_signature) {
+      return res
+        .status(400)
+        .json({ error: "Error occurred -- no svix headers" });
+    }
+
+    const body = req.body.toString();
+    const wh = new Webhook(SIGNING_SECRET);
+    let evt;
+
+    try {
+      evt = wh.verify(body, {
+        "svix-id": svix_id,
+        "svix-timestamp": svix_timestamp,
+        "svix-signature": svix_signature,
+      });
+    } catch (err) {
+      console.error("Error verifying webhook:", err);
+      return res.status(400).json({ success: false, message: err.message });
+    }
+
+    const eventType = evt.type;
+    if (eventType === "user.created") {
+      await inngest.send({
+        name: "clerk/user.created",
+        data: evt.data,
+      });
+    }
+
+    return res.status(200).json({ success: true, message: "Webhook received" });
+  },
+);
+
+// 3. تفعيل الـ JSON لباقي الراوتات العادية في التطبيق
+app.use(express.json());
+
+// 4. تهيئة Clerk مع استثناء مسارات api تماماً لمنع حدوث 401
+const clerk = clerkMiddleware();
 app.use((req, res, next) => {
-  if (req.originalUrl.startsWith("/api/inngest")) {
+  if (req.originalUrl.startsWith("/api/")) {
     return next();
   }
-  return clerkMiddleware()(req, res, next);
+  return clerk(req, res, next);
 });
 
-// 4. راوت التجربة
+// 5. راوت التجربة
 app.get("/", (req, res) => {
   res.send("hello in world with bassem");
 });
 
-// 5. الاتصال بقاعدة البيانات لـ Vercel Serverless
+// 6. الاتصال بقاعدة البيانات لـ Vercel Serverless
 ConnectDb().catch(console.error);
 
-// 6. تشغيل السيرفر محلياً (لو مش شغال في بيئة الإنتاج على Vercel)
+// 7. تشغيل السيرفر محلياً
 if (process.env.NODE_ENV !== "production") {
   const PORT = process.env.PORT || 4000;
-  const startServer = async () => {
-    try {
-      await ConnectDb();
-      app.listen(PORT, () => {
-        console.log(`Server is running on port ${PORT}`);
-      });
-    } catch (error) {
-      console.error(
-        "Failed to start server due to DB connection error:",
-        error,
-      );
-    }
-  };
-  startServer();
+  app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+  });
 }
 
-// 7. التصدير الأساسي لـ Vercel
 export default app;
