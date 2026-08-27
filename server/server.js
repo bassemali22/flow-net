@@ -1,5 +1,6 @@
 import express from "express";
 import dotenv from "dotenv";
+dotenv.config();
 import cors from "cors";
 import ConnectDb from "./config/ConnectDb.js";
 import { inngest, functions } from "./inngest/index.js";
@@ -12,7 +13,6 @@ const app = express();
 
 app.use(express.json());
 app.use(cors());
-
 
 // مسار Inngest الأساسي لاستقبال إيفنتات Clerk وتوثيقها تلقائياً
 app.use(
