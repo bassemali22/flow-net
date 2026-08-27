@@ -13,7 +13,6 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-app.use(clerkMiddleware());
 
 // مسار Inngest الأساسي لاستقبال إيفنتات Clerk وتوثيقها تلقائياً
 app.use(
