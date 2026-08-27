@@ -9,7 +9,7 @@ export const inngest = new Inngest({
 // Create User
 // =========================
 const syncUserCreation = inngest.createFunction(
-  { id: "sync-user-from-clerk" },
+  { id: "sync-user-from-clerk", name: "Sync User From Clerk (Created)" },
   { event: "clerk/user.created" },
   async ({ event }) => {
     const { id, first_name, last_name, email_addresses, image_url } =
@@ -44,7 +44,7 @@ const syncUserCreation = inngest.createFunction(
 // Update User
 // =========================
 const syncUserUpdation = inngest.createFunction(
-  { id: "update-user-from-clerk" },
+  { id: "update-user-from-clerk", name: "Sync User From Clerk (Updated)" },
   { event: "clerk/user.updated" },
   async ({ event }) => {
     const { id, first_name, last_name, email_addresses, image_url } =
@@ -74,7 +74,7 @@ const syncUserUpdation = inngest.createFunction(
 // Delete User
 // =========================
 const syncUserDeletion = inngest.createFunction(
-  { id: "delete-user-from-clerk" },
+  { id: "delete-user-from-clerk", name: "Sync User From Clerk (Deleted)" },
   { event: "clerk/user.deleted" },
   async ({ event }) => {
     const { id } = event.data;
