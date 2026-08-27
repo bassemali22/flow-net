@@ -1,10 +1,13 @@
 import { Inngest } from "inngest";
 import User from "../models/User.js";
 
-// Create a client to send and receive events
-export const inngest = new Inngest({ id: "my-app" });
+export const inngest = new Inngest({
+  id: "my-app",
+});
 
-// Inngest function to save user data
+// =========================
+// Create User
+// =========================
 const syncUserCreation = inngest.createFunction(
   {
     id: "sync-user-from-clerk",
@@ -13,22 +16,35 @@ const syncUserCreation = inngest.createFunction(
   async ({ event }) => {
     const { id, first_name, last_name, email_addresses, image_url } =
       event.data;
-    let username = email_addresses[0].email_address.split("@")[0];
-    const user = await User.findOne({ username });
-    if (user) {
-      username = username + Math.floor(Math.random() * 10000);
+
+    const email = email_addresses?.[0]?.email_address;
+
+    if (!email) {
+      throw new Error("User email is missing");
     }
-    const userDta = {
+
+    let username = email.split("@")[0];
+
+    // Make sure username is unique
+    const existingUser = await User.findOne({ username });
+
+    if (existingUser) {
+      username = `${username}${Math.floor(Math.random() * 10000)}`;
+    }
+
+    await User.create({
       _id: id,
-      email: email_addresses[0].email_address,
-      full_name: first_name + " " + last_name,
-      profile_picture: image_url,
-    };
-    await User.create(userDta);
+      username,
+      email,
+      full_name: `${first_name || ""} ${last_name || ""}`.trim(),
+      profile_picture: image_url || "",
+    });
   },
 );
 
-// Inngest function to update user data in database
+// =========================
+// Update User
+// =========================
 const syncUserUpdation = inngest.createFunction(
   {
     id: "update-user-from-clerk",
@@ -38,17 +54,29 @@ const syncUserUpdation = inngest.createFunction(
     const { id, first_name, last_name, email_addresses, image_url } =
       event.data;
 
-    const updatedUserData = {
-      email: email_addresses[0].email_address,
-      full_name: first_name + " " + last_name,
-      profile_picture: image_url,
-    };
+    const email = email_addresses?.[0]?.email_address;
 
-    await User.findByIdAndUpdate(id, updatedUserData);
+    if (!email) {
+      throw new Error("User email is missing");
+    }
+
+    await User.findByIdAndUpdate(
+      id,
+      {
+        email,
+        full_name: `${first_name || ""} ${last_name || ""}`.trim(),
+        profile_picture: image_url || "",
+      },
+      {
+        new: true,
+      },
+    );
   },
 );
 
-// Inngest function to delete user from database
+// =========================
+// Delete User
+// =========================
 const syncUserDeletion = inngest.createFunction(
   {
     id: "delete-user-from-clerk",
@@ -56,9 +84,12 @@ const syncUserDeletion = inngest.createFunction(
   },
   async ({ event }) => {
     const { id } = event.data;
+
     await User.findByIdAndDelete(id);
   },
 );
 
-// Export all functions so Inngest can register them
+// =========================
+// Export Functions
+// =========================
 export const functions = [syncUserCreation, syncUserUpdation, syncUserDeletion];
