@@ -1,11 +1,9 @@
 import express from "express";
 import dotenv from "dotenv";
-dotenv.config();
 import cors from "cors";
 import ConnectDb from "./config/ConnectDb.js";
 import { inngest, functions } from "./inngest/index.js";
 import { serve } from "inngest/express";
-import { clerkMiddleware } from "@clerk/express";
 
 dotenv.config();
 
@@ -14,7 +12,6 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// مسار Inngest الأساسي لاستقبال إيفنتات Clerk وتوثيقها تلقائياً
 app.use(
   "/api/inngest",
   serve({
@@ -31,6 +28,7 @@ ConnectDb().catch(console.error);
 
 if (process.env.NODE_ENV !== "production") {
   const PORT = process.env.PORT || 4000;
+
   app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
   });
