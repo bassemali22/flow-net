@@ -27,7 +27,6 @@ const syncUserCreation = inngest.createFunction(
 
     let username = email.split("@")[0];
 
-    // Make sure username is unique
     const existingUser = await User.findOne({ username });
 
     if (existingUser) {

@@ -4,12 +4,14 @@ import cors from "cors";
 import ConnectDb from "./config/ConnectDb.js";
 import { inngest, functions } from "./inngest/index.js";
 import { serve } from "inngest/express";
+import { clerkMiddleware } from "@clerk/express";
 
 dotenv.config();
 
 const app = express();
 
 app.use(express.json());
+app.use(clerkMiddleware);
 app.use(cors());
 
 app.use(
