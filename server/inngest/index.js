@@ -1,5 +1,6 @@
 import { Inngest } from "inngest";
 import User from "../models/User.js";
+import connectDb from "../config/ConnectDb.js";
 
 export const inngest = new Inngest({
   id: "my-app",
@@ -14,6 +15,7 @@ const syncUserCreation = inngest.createFunction(
     triggers: [{ event: "clerk/user.created" }],
   },
   async ({ event }) => {
+    await connectDb();
     const { id, first_name, last_name, email_addresses, image_url } =
       event.data;
 
@@ -51,6 +53,7 @@ const syncUserUpdation = inngest.createFunction(
     triggers: [{ event: "clerk/user.updated" }],
   },
   async ({ event }) => {
+    await connectDb();
     const { id, first_name, last_name, email_addresses, image_url } =
       event.data;
 
@@ -83,6 +86,7 @@ const syncUserDeletion = inngest.createFunction(
     triggers: [{ event: "clerk/user.deleted" }],
   },
   async ({ event }) => {
+    await connectDb();
     const { id } = event.data;
 
     await User.findByIdAndDelete(id);
