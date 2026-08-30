@@ -1,6 +1,6 @@
 import express from "express";
 import { protect } from "../middleware/auth.js";
-import upload from "../configs/multer.js";
+import upload from "../config/multer.js";
 import {
   acceptConnectionRequest,
   discoverUsers,
