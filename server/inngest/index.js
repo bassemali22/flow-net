@@ -12,8 +12,10 @@ export const inngest = new Inngest({
 // Create User
 // =========================
 const syncUserCreation = inngest.createFunction(
-  { id: "sync-user-from-clerk" },
-  { event: "clerk/user.created" },
+  {
+    id: "sync-user-from-clerk",
+    triggers: [{ event: "clerk/user.created" }],
+  },
   async ({ event }) => {
     await connectDb();
     const { id, first_name, last_name, email_addresses, image_url } =
@@ -47,8 +49,10 @@ const syncUserCreation = inngest.createFunction(
 // Update User
 // =========================
 const syncUserUpdation = inngest.createFunction(
-  { id: "update-user-from-clerk" },
-  { event: "clerk/user.updated" },
+  {
+    id: "update-user-from-clerk",
+    triggers: [{ event: "clerk/user.updated" }],
+  },
   async ({ event }) => {
     await connectDb();
     const { id, first_name, last_name, email_addresses, image_url } =
@@ -78,8 +82,10 @@ const syncUserUpdation = inngest.createFunction(
 // Delete User
 // =========================
 const syncUserDeletion = inngest.createFunction(
-  { id: "delete-user-from-clerk" },
-  { event: "clerk/user.deleted" },
+  {
+    id: "delete-user-from-clerk",
+    triggers: [{ event: "clerk/user.deleted" }],
+  },
   async ({ event }) => {
     await connectDb();
     const { id } = event.data;
@@ -89,8 +95,10 @@ const syncUserDeletion = inngest.createFunction(
 );
 
 const sendNewConnectionRequestReminder = inngest.createFunction(
-  { id: "send-new-connection-request-reminder" },
-  { event: "app/connection-request" },
+  {
+    id: "send-new-connection-request-reminder",
+    triggers: [{ event: "app/connection-request" }],
+  },
   async ({ event, step }) => {
     const { connectionId } = event.data;
 
@@ -148,8 +156,10 @@ const sendNewConnectionRequestReminder = inngest.createFunction(
 );
 
 const deleteStory = inngest.createFunction(
-  { id: "story-delete" },
-  { event: "app/story.delete" },
+  {
+    id: "story-delete",
+    triggers: [{ event: "app/story.delete" }],
+  },
   async ({ event, step }) => {
     const { storyId } = event.data;
     const in24Hours = new Date(Date.now() + 24 * 60 * 60 * 1000);
