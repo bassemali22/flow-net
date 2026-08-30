@@ -7,6 +7,8 @@ import { inngest, functions } from "./inngest/index.js";
 import { serve } from "inngest/express";
 import { clerkMiddleware } from "@clerk/express";
 import userRouter from "./routes/userRoutes.js";
+import postRouter from "./routes/postRoutes.js";
+import storyRouter from "./routes/storyRputes.js";
 
 const app = express();
 
@@ -29,6 +31,8 @@ app.get("/", (req, res) => {
 
 // 3. مسارات التطبيق
 app.use("/api/user", userRouter);
+app.use("api/post", postRouter);
+app.use("api/stroies", storyRouter);
 
 // 4. مسار Inngest (يُكتب مرة واحدة فقط بالشكل الصحيح بعد الـ Middleware)
 app.use(
