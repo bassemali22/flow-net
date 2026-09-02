@@ -3,6 +3,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Heart, MessageCircle, Image, Bell } from "lucide-react";
 import moment from "moment";
 import { useState, useEffect } from "react";
+import { useAuth } from "@clerk/clerk-react";
+import api from "../api/axios.js";
+
 const TABS = [
   { key: "all", label: "All", icon: Bell },
   { key: "like", label: "Likes", icon: Heart },
@@ -11,9 +14,54 @@ const TABS = [
 ];
 
 const NotificationsPage = () => {
+  const { getToken } = useAuth();
+
   const [notifications, setNotifications] = useState([]);
   const [activeTab, setActiveTab] = useState("all");
   const [loading, setLoading] = useState(true);
+
+  const fetchnotifications = async () => {
+    try {
+      setLoading(true);
+
+      const token = await getToken();
+
+      const { data } = await api.get("/api/notifications", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      console.log("NOTIFICATIONS DATA:", data);
+
+      if (data.success) {
+        const safeNotifications = data.notifications.map((n) => ({
+          ...n,
+          type: n?.type?.trim().toLowerCase() || "unknown",
+          from_user: n.from_user || {
+            profile_picture: "/default.png",
+            full_name: "Saad",
+          },
+          _id: n._id || Math.random().toString(36).substr(2, 9),
+        }));
+
+        setNotifications(safeNotifications);
+      } else {
+        toast.error(data.message || "Failed to fetch notifications");
+      }
+    } catch (error) {
+      console.log("NOTIFICATION ERROR:", error.response?.data || error.message);
+
+      toast.error(error.response?.data?.message || error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // لازم تكون داخل الـ Component
+  useEffect(() => {
+    fetchnotifications();
+  }, []);
 
   const filtered =
     activeTab === "all"
@@ -31,6 +79,7 @@ const NotificationsPage = () => {
           className="flex items-center gap-3 bg-[#182034]/55 backdrop-blur-lg rounded-2xl p-4 shadow-lg border border-purple-500/30 mb-8"
         >
           <Bell className="w-6 h-6 text-purple-400" />
+
           <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-400">
             Notifications
           </h1>
@@ -41,16 +90,19 @@ const NotificationsPage = () => {
           {TABS.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.key;
+
             return (
               <motion.div
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
-                className={`cursor-pointer p-3 rounded-xl backdrop-blur-lg bg-[#182034]/30 border border-purple-500/20 flex items-center justify-center`}
+                className="cursor-pointer p-3 rounded-xl backdrop-blur-lg bg-[#182034]/30 border border-purple-500/20 flex items-center justify-center"
                 whileHover={{ scale: 1.1 }}
                 animate={{ scale: isActive ? 1.15 : 1 }}
               >
                 <Icon
-                  className={`w-6 h-6 ${isActive ? "text-purple-400" : "text-gray-400"}`}
+                  className={`w-6 h-6 ${
+                    isActive ? "text-purple-400" : "text-gray-400"
+                  }`}
                 />
               </motion.div>
             );
@@ -65,6 +117,7 @@ const NotificationsPage = () => {
             <AnimatePresence>
               {filtered.map((n) => {
                 const user = n.from_user;
+
                 return (
                   <motion.div
                     key={n._id}
@@ -79,6 +132,7 @@ const NotificationsPage = () => {
                       alt={user.full_name}
                       className="w-12 h-12 rounded-full border border-purple-400 shadow-none"
                     />
+
                     {/* Content */}
                     <div className="flex-1">
                       <p className="text-white text-sm">
@@ -87,11 +141,13 @@ const NotificationsPage = () => {
                         {n.type === "comment" && "commented on your post"}
                         {n.type === "media" && "shared media with you"}
                       </p>
+
                       {n.type === "comment" && n.commentText && (
                         <div className="mt-1.5 p-2 rounded-lg bg-[#1f264f]/60 border border-purple-500/20 text-gray-200 text-sm">
                           {n.commentText}
                         </div>
                       )}
+
                       <span className="text-xs text-gray-400 mt-1 block">
                         {moment(n.createdAt).fromNow()}
                       </span>

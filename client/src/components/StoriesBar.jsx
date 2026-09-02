@@ -3,16 +3,41 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import StoryWindow from "./StoryWindow";
 import StoryPlayer from "./Storyplayer";
+import { useAuth } from "@clerk/clerk-react";
+import api from "../api/axios.js";
+import toast from "react-hot-toast";
 
 const StoriesBar = () => {
   const [stories, setStories] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [viewStory, setViewStory] = useState(null);
-  const fetchStories = async () => {};
+  const { getToken } = useAuth();
+
+  const fetchStories = async () => {
+    try {
+      const token = await getToken();
+      const { data } = await api.get("/api/story/get", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (data.success) {
+        setStories(data.stories);
+      } else {
+        toast.error(data.message);
+      }
+    } catch (error) {
+      toast.error(error.message);
+    }
+  };
+
+  useEffect(() => {
+    fetchStories();
+  }, []);
   return (
     <div>
       {/* Stories Bar */}
-      <div className="fixed bottom-0 left-0 w-full bg-gradient-to-t from-[#0f172a]/90 via-[#1a1f4d]/50 to-[#3c1f7f]/0 backdrop-blur-lg border-t border-purple-500/20 z-10 pb-2 h-25">
+      <div className="fixed bottom-0 left-0 w-full bg-gradient-to-t from-[#0f172a]/90 via-[#1a1f4d]/50 
+      to-[#3c1f7f]/0 backdrop-blur-lg 
+      border-t border-purple-500/20 z-10 pb-2 h-25">
         <div className="flex items-center space-x-4 overflow-x-auto scrollbar-hide">
           {/* Create Story */}
           <motion.div

@@ -8,9 +8,10 @@ import {
   LogOut,
   Users,
   Sidebar as SidebarIcon,
+  Layers,
 } from "lucide-react";
 import { Link } from "react-router-dom";
-import { UserButton, useClerk } from "@clerk/react";
+import { UserButton, useClerk } from "@clerk/clerk-react";
 
 const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
   const user = "";
@@ -66,6 +67,27 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
           <User
             size={24}
             className="text-cyan-400 hover:text-cyan-300 transition-all"
+          />
+        </Link>
+        {/* زر البحث عن مجموعات */}
+        <Link
+          to="/groups/available"
+          className="p-2 rounded-full transition-all duration-300 hover:scale-110 hover:shadow-[0_0_20px_rgba(0,255,255,0.9)]"
+        >
+          <Layers
+            size={24}
+            className="text-orange-400 hover:text-orange-300 transition-all"
+          />
+        </Link>
+
+        {/* زر مجموعاتي */}
+        <Link
+          to="/groups/joined"
+          className="p-2 rounded-full transition-all duration-300 hover:scale-110 hover:shadow-[0_0_20px_rgba(0,255,255,0.9)]"
+        >
+          <Users
+            size={24}
+            className="text-teal-400 hover:text-teal-300 transition-all"
           />
         </Link>
 

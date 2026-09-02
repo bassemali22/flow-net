@@ -3,66 +3,107 @@ import { useParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import { motion } from "framer-motion";
 import { useState, useRef, useEffect } from "react";
-
-const currentUser = {
-  _id: "1",
-  username: "myuser",
-  full_name: "My Name",
-  profile_picture: "https://i.pravatar.cc/40?img=1",
-};
-
-const user = {
-  _id: "2",
-  username: "friend",
-  full_name: "Friend Name",
-  profile_picture: "https://i.pravatar.cc/40?img=2",
-};
-
-const connections = [user];
-
-const initialMessages = [
-  {
-    id: "m1",
-    from_user_id: "2",
-    text: "مرحباً!",
-    message_type: "text",
-    createdAt: "2025-09-13T10:00:00Z",
-  },
-];
+import api from "../api/axios";
+import { useDispatch, useSelector } from "react-redux";
+import {
+  addMessages,
+  resetMessages,
+  fetchMessages,
+} from "../features/messages/messagesSlice";
 
 const Chat = () => {
-  const { userid } = useParams();
   const [text, setText] = useState("");
-  const [image, setImage] = useState(null); // أضفنا حالة الصورة المفقودة
-  const [localMessages, setLocalMessages] = useState(initialMessages);
-  const [isBlockedByUser, setIsBlockedByUser] = useState(false);
-  
-  const messageEndRef = useRef(null);
-  console.log(userid);
+  const [image, setImage] = useState(null);
+  const [user, setUser] = useState(null);
 
-  // التمرير التلقائي لأسفل عند تغيير الرسائل
-  useEffect(() => {
-    messageEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [localMessages]);
+  const { userId } = useParams();
+  const { getToken } = useAuth();
+  const dispatch = useDispatch();
 
-  const sendMessage = () => {
-    if (!text.trim() && !image) return;
-    
-    setLocalMessages([
-      ...localMessages,
-      {
-        id: Date.now().toString(),
-        from_user_id: currentUser._id,
-        text,
-        message_type: image ? "image" : "text",
-        media_url: image ? URL.createObjectURL(image) : null,
-        createdAt: new Date().toISOString(),
-      },
-    ]);
-    
-    setText("");
-    setImage(null);
+  const messages = useSelector((state) => state.messages);
+  const currentUser = useSelector((state) => state.user.value);
+  const connections = useSelector((state) => state.connections.connections);
+
+  const messagesEndRef = useRef(null);
+  const fetchUserData = async () => {
+    try {
+      const token = await getToken();
+      const { data } = await api.post(
+        "/api/user/profiles",
+        { profileId: userId },
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      if (data.success) {
+        setUser({
+          ...data.profile,
+          blockedUsers: data.profile.blockedUsers || [],
+        });
+      }
+    } catch (err) {
+      toast.error(err.message);
+    }
   };
+
+  const fetchUserMessages = async () => {
+    try {
+      const token = await getToken();
+      dispatch(fetchMessages({ token, userId }));
+    } catch (err) {
+      toast.error(err.message);
+    }
+  };
+
+  const sendMessage = async () => {
+    try {
+      if (!user) return;
+
+      if (user.blockedUsers?.includes(currentUser._id)) {
+        toast.error("هذا المستخدم قام بحظرك");
+        return;
+      }
+      if (!text && !image) return;
+
+      const token = await getToken();
+      const formData = new FormData();
+      formData.append("to_user_id", userId);
+      formData.append("text", text);
+      if (image) formData.append("image", image);
+
+      const { data } = await api.post("/api/message/send", formData, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (data.success) {
+        setText("");
+        setImage(null);
+        dispatch(addMessages(data.message));
+      } else {
+        toast.error(data.message);
+      }
+    } catch (err) {
+      toast.error(err.message);
+    }
+  };
+
+  useEffect(() => {
+    if (!user) return;
+    fetchUserData();
+    fetchUserMessages();
+    return () => dispatch(resetMessages());
+  }, [userId]);
+
+  useEffect(() => {
+    if (connections.length > 0) {
+      const u = connections.find((c) => c._id === userId);
+      if (u) setUser((prev) => ({ ...prev, ...u }));
+    }
+  }, [connections, userId]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+  if (!user) return null;
+  const isBlockedByUser = user?.blockedUsers?.includes(currentUser._id);
 
   return (
     <div className="flex flex-col h-screen bg-gradient-to-br from-[#0b0f3b] via-[#1a1f4d] to-[#3c1f7f] text-white overflow-hidden relative">
@@ -92,16 +133,15 @@ const Chat = () => {
                 لقد قام هذا المستخدم بحظرك
               </p>
               <p className="text-purple-200 text-lg">
-                للأسف لا يمكنك مراسلته، ربما في المستقبل سيكون هناك فرصة للتواصل ✨
+                للأسف لا يمكنك مراسلته، ربما في المستقبل سيكون هناك فرصة للتواصل
+                ✨
               </p>
             </motion.div>
           </div>
         ) : (
           <div className="space-y-4 max-w-full mx-auto pb-20">
             {localMessages
-              .toSorted(
-                (a, b) => new Date(a.createdAt) - new Date(b.createdAt),
-              )
+              .toSorted((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
               .map((message, index) => {
                 const isCurrentUserId =
                   message.from_user_id === currentUser._id;
@@ -135,12 +175,13 @@ const Chat = () => {
                           : "bg-white/10 backdrop-blur-lg rounded-br-none border border-purple-500/30"
                       } transition-all duration-300`}
                     >
-                      {message.message_type === "image" && message.media_url && (
-                        <img
-                          src={message.media_url}
-                          className="w-full max-w-sm rounded-xl mb-1 shadow-[0_0_10px_rgba(255,0,255,0.5)] object-cover"
-                        />
-                      )}
+                      {message.message_type === "image" &&
+                        message.media_url && (
+                          <img
+                            src={message.media_url}
+                            className="w-full max-w-sm rounded-xl mb-1 shadow-[0_0_10px_rgba(255,0,255,0.5)] object-cover"
+                          />
+                        )}
                       {message.text && <p>{message.text}</p>}
                     </div>
                     {isCurrentUserId && (
@@ -154,7 +195,7 @@ const Chat = () => {
                   </motion.div>
                 );
               })}
-            <div ref={messageEndRef} />
+            <div ref={messagesEndRef} />
           </div>
         )}
       </div>

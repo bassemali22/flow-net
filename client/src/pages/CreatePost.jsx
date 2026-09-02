@@ -4,25 +4,50 @@ import { Image, X } from "lucide-react";
 import toast from "react-hot-toast";
 import sample_cover from "../assets/sample_cover.jpg";
 import sample_profile from "../assets/sample_profile.jpg";
+import { useSelector } from "react-redux";
+import { useAuth } from "@clerk/clerk-react";
+import api from "../api/axios";
 
 const CreatePost = () => {
   const [content, setContent] = useState("");
   const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const [user, setUser] = useState({
-    _id: "1",
-    username: "John Doe",
-    full_name: "John Doe",
-    profile_picture: sample_profile,
-    cover_photo: sample_cover,
-    bio: "This is a bio",
-    isFollowed: false,
-  });
+
+  const user = useSelector((state) => state.user.value);
+  const { getToken } = useAuth();
 
   const handleSubmit = async () => {
-    // Add your submit/upload logic here
-    return new Promise((resolve) => setTimeout(resolve, 1500));
+    if (!images.length && !content) {
+      return toast.error("Please add at least one image or text");
+    }
+    setLoading(true);
+    const postType =
+      images.length && content
+        ? "text_with_image"
+        : images.length
+          ? "image"
+          : "text";
+
+    try {
+      const formData = new FormData();
+      formData.append("content", content);
+      formData.append("post_type", postType);
+      images.forEach((image) => formData.append("images", image));
+      const { data } = await api.post("/api/post/add", formData, {
+        headers: { Authorization: `Bearer ${await getToken()}` },
+      });
+      if (data.success) {
+        console.log("first");
+        navigate("/");
+      } else {
+        throw new Error(data.message);
+      }
+    } catch (error) {
+      console.log(error.message);
+      toast.error("Post Not Addded");
+    }
+    setLoading(false);
   };
 
   return (
@@ -40,15 +65,15 @@ const CreatePost = () => {
         <div className="max-w-xl mx-auto bg-white/10 backdrop-blur-lg rounded-2xl shadow-[0_0_25px_rgba(131,58,180,0.5)] p-6 space-y-4 border border-purple-500/40">
           <div className="flex items-center gap-3">
             <img
-              src={user.profile_picture}
+              src={user?.profile_picture}
               className="w-12 h-12 rounded-full border border-purple-500 shadow-[0_0_10px_rgba(255,255,255,0.3)] object-cover"
-              alt={user.full_name}
+              alt={user?.full_name}
             />
             <div>
               <h2 className="font-semibold text-purple-200">
-                {user.full_name}
+                {user?.full_name}
               </h2>
-              <p className="text-gray-400 text-sm">@{user.username}</p>
+              <p className="text-gray-400 text-sm">@{user?.username}</p>
             </div>
           </div>
 

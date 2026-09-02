@@ -10,7 +10,6 @@ export const assets = {
     logo,
     sample_cover,
     sample_profile,
- 
     group_users,
     sponsored_img
 }

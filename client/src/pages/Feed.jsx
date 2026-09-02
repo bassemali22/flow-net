@@ -1,17 +1,47 @@
 import Loading from "../components/Loading";
 import logo from "../assets/logo.png";
-import { Bell } from "lucide-react";
+import { Bell, Cog } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import StoriesBar from "../components/StoriesBar";
 import RecentMessages from "../components/RecentMessage";
 import PostCard from "../components/PostCard";
+import { useAuth } from "@clerk/clerk-react";
+import toast from "react-hot-toast";
+import api from "../api/axios";
 
 const Feed = () => {
   const [feeds, setFeeds] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const { getToken } = useAuth();
+  const fetchFeeds = async () => {
+    console.log("bassem");
+    try {
+      setLoading(true);
+      const token = await getToken();
+      const { data } = await api.get("/api/post/feed", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (data.success) {
+        console.log(data);
+        setFeeds(data.posts);
+      } else {
+        toast.error(data.message || "Failed to fetch feeds");
+      }
+    } catch (error) {
+      console.log(error.message);
+      toast.error(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
+    fetchFeeds();
+  }, []);
   return loading ? (
     <Loading />
   ) : (

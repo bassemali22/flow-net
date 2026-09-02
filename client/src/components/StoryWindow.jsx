@@ -1,9 +1,12 @@
-import { useAuth } from "@clerk/react";
+import { useAuth } from "@clerk/clerk-react";
 import { ArrowLeft, Sparkle, Upload, TextIcon } from "lucide-react";
 import { useState } from "react";
 import toast from "react-hot-toast";
+import api from "../api/axios.js"; // تأكد من صحة مسار الـ api
 
-const StoryWindow = ({ setShowModal }) => {
+const StoryWindow = ({ setShowModal, fetchStories }) => {
+  const { getToken } = useAuth();
+
   const bgColors = [
     "#4f46e5",
     "#7c3aed",
@@ -12,28 +15,93 @@ const StoryWindow = ({ setShowModal }) => {
     "#ca8a04",
     "#0d9488",
   ];
+
   const [mode, setMode] = useState("text");
   const [background, setBackground] = useState(bgColors[0]);
   const [media, setMedia] = useState(null);
   const [text, setText] = useState("");
   const [previewUrl, setPreviewUrl] = useState(null);
 
+  const MAX_DURATION = 60;
+  const MAX_SIZE = 50;
+
   const handleMediaUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.type.startsWith("video")) {
+      if (file.size > MAX_SIZE * 1024 * 1024) {
+        toast.error(`Video file size cannot exceed ${MAX_SIZE}MB.`);
+        setMedia(null);
+        setPreviewUrl(null);
+        return;
+      }
+      const video = document.createElement("video");
+      video.preload = "metadata";
+      video.onloadedmetadata = () => {
+        window.URL.revokeObjectURL(video.src);
+        if (video.duration > MAX_DURATION) {
+          toast.error("Video duration cannot exceed 1 minute.");
+          setMedia(null);
+          setPreviewUrl(null);
+        } else {
+          setMedia(file);
+          setPreviewUrl(URL.createObjectURL(file));
+          setText("");
+          setMode("media");
+        }
+      };
+      video.src = URL.createObjectURL(file);
+    } else if (file.type.startsWith("image")) {
       setMedia(file);
       setPreviewUrl(URL.createObjectURL(file));
+      setText("");
+      setMode("media");
     }
   };
 
   const handleCreateStory = async () => {
-    // منطق رفع القصة
+    const media_type =
+      mode === "media"
+        ? media?.type.startsWith("image")
+          ? "image"
+          : "video"
+        : "text";
+
+    if (media_type === "text" && !text) {
+      throw new Error("Please enter some text");
+    }
+
+    let formData = new FormData();
+    formData.append("content", text);
+    formData.append("media_type", media_type);
+    if (media) {
+      formData.append("media", media);
+    }
+    formData.append("background_color", background);
+
+    const token = await getToken();
+
+    const { data } = await api.post("/api/story/create", formData, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "multipart/form-data",
+      },
+    });
+
+    if (data.success) {
+      setShowModal(false);
+      toast.success("Story created successfully");
+      fetchStories();
+    } else {
+      throw new Error(data.message || "Failed to create story");
+    }
   };
 
   return (
     <div
       className="fixed inset-0 z-110 min-h-screen bg-black/80 backdrop-blur text-white
-        flex items-center justify-center p-4"
+      flex items-center justify-center p-4"
     >
       <div className="w-full max-w-md">
         <div className="text-center mb-4 flex items-center justify-between">
@@ -63,9 +131,17 @@ const StoryWindow = ({ setShowModal }) => {
           {mode === "media" &&
             previewUrl &&
             (media?.type.startsWith("image") ? (
-              <img src={previewUrl} className="object-contain max-h-full" />
+              <img
+                src={previewUrl}
+                className="object-contain max-h-full"
+                alt="Preview"
+              />
             ) : (
-              <video src={previewUrl} className="object-contain max-h-full" />
+              <video
+                src={previewUrl}
+                className="object-contain max-h-full"
+                controls
+              />
             ))}
         </div>
 
@@ -108,6 +184,8 @@ const StoryWindow = ({ setShowModal }) => {
           onClick={() =>
             toast.promise(handleCreateStory(), {
               loading: "Saving...",
+              success: "Done!",
+              error: (err) => err.message || "Failed to create story",
             })
           }
           className="flex items-center justify-center gap-2 py-2 mt-4 w-full rounded bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 active:scale-95 transition cursor-pointer"

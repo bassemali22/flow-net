@@ -2,11 +2,14 @@ import { useState } from "react";
 import { BadgeCheck, Heart, MessageCircle, Share2 } from "lucide-react";
 import moment from "moment";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "@clerk/react";
+import { useAuth } from "@clerk/clerk-react";
 import toast from "react-hot-toast";
+import { useSelector } from "react-redux";
 
 const PostCard = ({ post }) => {
   const navigate = useNavigate();
+  const { getToken } = useAuth();
+  const currentUser = useSelector((state) => state.user.value);
   const [likes, setLikes] = useState(
     Array.isArray(post.likes_count) ? post.likes_count : [],
   );
@@ -14,14 +17,26 @@ const PostCard = ({ post }) => {
     /(#\w+)/g,
     '<span class="text-indigo-400">$1</span>',
   );
-
-  const handleLike = () =>{
+  const handleLike = async () => {
+    try {
+      const token = await getToken();
+      const { data } = await api.post(
+        "/api/post/like",
+        { postId: post._id },
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      if (data.success) {
+        setLikes((prev) =>
+          prev.includes(currentUser?._id)
+            ? prev.filter((id) => id !== currentUser?._id)
+            : [...prev, currentUser?._id],
+        );
+      } else toast.error(data.message);
+    } catch (error) {
+      toast.error(error.message);
     }
-  const currentUser = {
-    _id: "123",
-    username: "MyUser",
-    profile_picture: "/default-profile.png",
   };
+
   return (
     <div className="bg-[#182034] text-white rounded-xl shadow-ms p-4 space-y-3 w-full max-w-2xl">
       <div
@@ -29,7 +44,7 @@ const PostCard = ({ post }) => {
         className="flex items-center gap-3 cursor-pointer"
       >
         <img
-          src={post.user?.prohile_picture || ""}
+          src={post.user?.profile_picture || ""}
           alt=""
           className="w-10 h-10 rounded-full shadow-ms"
         />
@@ -80,7 +95,10 @@ const PostCard = ({ post }) => {
           />
           <span>{likes.length}</span>س
         </div>
-        <div className="flex items-center gap-1 cursor-pointer">
+        <div
+          className="flex items-center gap-1 cursor-pointer"
+          onClick={() => navigate(`/post-details/${post._id}`)}
+        >
           <MessageCircle className="w-5 h-5" />
           <span>{post.comments?.length || 0}</span>
         </div>

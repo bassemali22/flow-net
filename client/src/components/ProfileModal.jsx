@@ -1,32 +1,54 @@
 import { Pencil } from "lucide-react";
 import toast from "react-hot-toast";
+import { useDispatch, useSelector } from "react-redux";
+import { useAuth } from "@clerk/clerk-react";
 import { useState } from "react";
 import sample_cover from "../assets/sample_cover.jpg";
 import sample_profile from "../assets/sample_profile.jpg";
+// تأكد من تعديل مسار الاستيراد حسب مكان ملف الـ userSlice لديك
+import { updateUser } from "../features/user/userSlice";
 
 const ProfileModal = ({ setShowEdit }) => {
-  const [user, setUser] = useState({
-    _id: "1",
-    username: "John Doe",
-    full_name: "John Doe",
-    profile_picture: sample_profile,
-    cover_photo: sample_cover,
-    bio: "This is a bio",
-    isFollowed: false,
-    location: "syria",
-  });
+  const dispatch = useDispatch();
+  const { getToken } = useAuth();
+  const user = useSelector((state) => state.user.value);
 
   const [editForm, setEditForm] = useState({
-    username: user.username,
-    bio: user.bio,
-    location: user.location,
-    profile_picture: sample_profile,
-    cover_photo: sample_cover,
-    full_name: user.full_name,
+    username: user?.username || "",
+    bio: user?.bio || "",
+    location: user?.location || "",
+    profile_picture: null,
+    cover_photo: null,
+    full_name: user?.full_name || "",
   });
 
-  const handleSaveProfile = async () => {
-    return new Promise((resolve) => setTimeout(resolve, 1000));
+  const handleSaveProfile = async (e) => {
+    e.preventDefault();
+    const loadingToast = toast.loading("Saving profile...");
+    try {
+      const userData = new FormData();
+      const {
+        full_name,
+        username,
+        bio,
+        location,
+        profile_picture,
+        cover_photo,
+      } = editForm;
+
+      userData.append("username", username);
+      userData.append("location", location);
+      userData.append("bio", bio);
+      userData.append("full_name", full_name);
+      profile_picture && userData.append("profile", profile_picture);
+      cover_photo && userData.append("cover", cover_photo);
+      console.log({ user: userData.get("username"), username: "bassem" });
+      const token = await getToken();
+      dispatch(updateUser({ userData, token }));
+    } catch (error) {
+      toast.error(error.message || "An error occurred.");
+      setShowEdit(false);
+    }
   };
 
   // دالة مساعدة لعرض الصورة سواء كانت ملف جديد تم رفعه أو الصورة الافتراضية
@@ -44,17 +66,7 @@ const ProfileModal = ({ setShowEdit }) => {
           <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500 mb-6 text-center tracking-wide">
             Edit Profile
           </h1>
-          <form
-            className="space-y-6"
-            onSubmit={(e) => {
-              e.preventDefault();
-              toast.promise(handleSaveProfile(), {
-                loading: "Saving...",
-                success: "Profile updated successfully!",
-                error: "Failed to save profile.",
-              });
-            }}
-          >
+          <form className="space-y-6" onSubmit={handleSaveProfile}>
             {/* Profile Picture */}
             <div className="flex flex-col items-center">
               <label
@@ -77,7 +89,10 @@ const ProfileModal = ({ setShowEdit }) => {
                 />
                 <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-full border-4 border-purple-500 shadow-[0_0_30px_rgba(168,85,247,0.75)] overflow-hidden bg-purple-950">
                   <img
-                    src={getImageUrl(editForm.profile_picture, sample_profile)}
+                    src={getImageUrl(
+                      editForm.profile_picture,
+                      user?.profile_picture || sample_profile,
+                    )}
                     alt="Profile Preview"
                     className="w-full h-full object-cover"
                   />
@@ -113,7 +128,10 @@ const ProfileModal = ({ setShowEdit }) => {
                 />
                 <div className="relative w-full h-36 sm:h-40 rounded-xl overflow-hidden border border-purple-400/25 shadow-lg bg-purple-950">
                   <img
-                    src={getImageUrl(editForm.cover_photo, sample_cover)}
+                    src={getImageUrl(
+                      editForm.cover_photo,
+                      user?.cover_photo || sample_cover,
+                    )}
                     alt="Cover Preview"
                     className="w-full h-full object-cover"
                   />
@@ -174,7 +192,7 @@ const ProfileModal = ({ setShowEdit }) => {
               </button>
               <button
                 type="submit"
-                className="px-6 py-2 rounded-xl bg-gradient-to-r from-purple-500 to-pink-600 text-white font-semibold"
+                className="px-6 py-2 rounded-xl bg-gradient-to-r from-purple-500 to-pink-600 text-white font-semibold cursor-pointer"
               >
                 Save
               </button>

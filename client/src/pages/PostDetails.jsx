@@ -3,13 +3,60 @@ import { useEffect, useState } from "react";
 import { ArrowLeft, SendHorizontal, Loader2 } from "lucide-react";
 import moment from "moment";
 import toast from "react-hot-toast";
+import { useAuth } from "@clerk/clerk-react";
+import api from "../api/axios.js";
 
 const PostDetails = () => {
+  const { postId } = useParams();
+  const { getToken } = useAuth();
   const navigate = useNavigate();
   const [post, setPost] = useState(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [commentText, setCommentText] = useState("");
+
+  useEffect(() => {
+    const fetchPost = async () => {
+      try {
+        const token = await getToken();
+        const { data } = await api.get(`/api/post/${postId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (data.success) setPost(data.post);
+      } catch (err) {
+        toast.error("فشل تحميل البوست");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPost();
+  }, [postId, getToken]);
+
+  const handleAddComment = async (e) => {
+    e.preventDefault();
+    if (!commentText.trim()) return toast.error("يجب كتابة تعليق");
+    try {
+      setSubmitting(true);
+      const token = await getToken();
+      const { data } = await api.post(
+        `/api/post/${postId}/comment`,
+        { text: commentText },
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      if (data.success) {
+        toast.success("تم إضافة التعليق");
+        setPost(data.post);
+        setCommentText("");
+      } else {
+        toast.error(data.message);
+      }
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -20,11 +67,6 @@ const PostDetails = () => {
   }
 
   if (!post) return <p className="text-center text-gray-400">Post not found</p>;
-
-  const handleAddComment = (e) => {
-    e.preventDefault();
-    // منطق إضافة التعليق
-  };
 
   return (
     <div className="min-h-screen bg-[#0f172a] text-white">

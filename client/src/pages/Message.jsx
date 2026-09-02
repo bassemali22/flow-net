@@ -1,11 +1,12 @@
 import { useNavigate } from "react-router-dom";
 import { Eye, MessageSquare } from "lucide-react";
 import { motion } from "framer-motion";
+import { useSelector } from "react-redux";
 
 const Messages = () => {
   console.log("bassem");
   const navigate = useNavigate();
-  const connection = []; // قم بربط الـ state أو البيانات الخاصة بالاتصالات هنا
+  const  connection  = useSelector((state) => state.connections.connections);
 
   return (
     <div className="min-h-screen relative bg-gradient-to-br from-[#0f172a] via-purple-900 to-black text-white overflow-hidden">

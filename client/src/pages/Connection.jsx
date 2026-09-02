@@ -2,16 +2,19 @@ import { useState, useEffect } from "react";
 import { Users, MessageSquare } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-
+import api from "../api/axios";
+import { useAuth } from "@clerk/clerk-react";
+import { useDispatch, useSelector } from "react-redux";
+import toast from "react-hot-toast";
+import {fetchConnections} from "../features/connections/connectionsSlice";
 const Connections = () => {
-  const [currentTab, setCurrentTab] = useState("Followers");
+  const dispatch = useDispatch();
   const navigate = useNavigate();
-
-  const [connections, setConnections] = useState([]);
-  const [pendingConnections, setPendingConnections] = useState([]);
-  const [followers, setFollowers] = useState([]);
-  const [following, setFollowing] = useState([]);
-
+  const [currentTab, setCurrentTab] = useState("Followers");
+  const { connections, pendingConnections, followers, following } = useSelector(
+    (state) => state.connections,
+  );
+  const { getToken } = useAuth();
   const tabs = [
     {
       label: "Followers",
@@ -39,14 +42,42 @@ const Connections = () => {
     },
   ];
 
-  const handleUnfollow = (userId) => {
-    // Unfollow logic here
+  const handleUnfollow = async (userId) => {
+    try {
+      const { data } = await api.post(
+        "/api/user/unfollow",
+        { id: userId },
+        { headers: { Authorization: `Bearer ${await getToken()}` } },
+      );
+      if (data.success) toast.success(data.message);
+      else toast.error(data.message);
+    } catch (error) {
+      toast.error(error.message);
+    }
   };
 
-  const acceptConnection = (userId) => {
-    // Accept connection logic here
+  
+  const acceptConnection = async (userId) => {
+    try {
+      const { data } = await api.post(
+        "/api/user/accept",
+        { id: userId },
+        { headers: { Authorization: `Bearer ${await getToken()}` } },
+      );
+      if (data.success) {
+        toast.success(data.message);
+        dispatch(fetchConnections(await getToken()));
+      } else toast.error(data.message);
+    } catch (error) {
+      toast.error(error.message);
+    }
   };
 
+  useEffect(() => {
+    getToken().then((token) => {
+      dispatch(fetchConnections(token));
+    });
+  }, [dispatch, getToken]);
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0b0f3b] via-[#3c1f7f] to-[#3c1f7f] text-white p-8">
       <div className="max-w-6xl mx-auto px-6">

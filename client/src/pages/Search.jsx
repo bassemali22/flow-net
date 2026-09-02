@@ -1,19 +1,49 @@
 import { Search as SearchIcon } from "lucide-react";
 import Loading from "../components/Loading";
-import { useAuth } from "@clerk/react";
+import { useAuth } from "@clerk/clerk-react";
 import toast from "react-hot-toast";
 import { motion } from "framer-motion";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useDispatch } from "react-redux";
+import api from "../api/axios";
+import { fetchUser } from "../features/user/userSlice";
+import UserCard from "../components/UserCard";
 
 const SearchPage = () => {
   const [input, setInput] = useState("");
   const [Users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  const handleSearch = (e) => {
-    // منطق البحث الخاص بك هنا
+  const { getToken } = useAuth();
+  const dispatch = useDispatch();
+
+  const handleSearch = async (e) => {
+    if (e.key === "Enter") {
+      try {
+        setUsers([]);
+        setLoading(true);
+        const { data } = await api.post(
+          "/api/user/discover",
+          { input },
+          {
+            headers: { Authorization: `Bearer ${await getToken()}` },
+          },
+        );
+        data.success ? setUsers(data.users) : toast.error(data.message);
+        setLoading(false);
+        setInput("");
+      } catch (err) {
+        toast.error(err.message);
+        setLoading(false);
+      }
+    }
   };
 
+  useEffect(() => {
+    getToken().then((token) => {
+      dispatch(fetchUser(token));
+    });
+  }, [dispatch, getToken]);
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0b0f3b] via-[#1a1f4d] to-[#3c1f7f] text-white">
       {/* تم تعديل الحواشي لتتطابق بسلاسة مع الهواتف والشاشات الكبيرة */}
@@ -77,7 +107,7 @@ const SearchPage = () => {
               }}
               className="relative p-5 sm:p-6 rounded-xl bg-white/10 backdrop-blur-lg border border-pink-500 shadow-none transition-all duration-300"
             >
-              {/* User Card */}
+              <UserCard user={user} />
             </motion.div>
           ))}
         </motion.div>

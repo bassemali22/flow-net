@@ -1,34 +1,47 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import toast from "react-hot-toast";
 import { motion } from "framer-motion";
-import { useUser } from "@clerk/react";
+import { useAuth, useUser } from "@clerk/clerk-react";
 import moment from "moment";
-// import axios from "axios";
-// import { BACKEND_URL } from "../App";
-
+import api from "../api/axios";
 const RecentMessages = ({ viewStory }) => {
   const [messages, setMessages] = useState([]);
   const { user } = useUser();
-
-  // const fetchRecentMessages = async () => {
-  //   try {
-  //     const response = await axios.get(`${BACKEND_URL}/api/messages/recent`, {
-  //       headers: { userId: user?.id },
-  //     });
-  //     if (response.data.success) {
-  //       setMessages(response.data.messages);
-  //     }
-  //   } catch (error) {
-  //     console.log(error);
-  //   }
-  // };
-
-  // useEffect(() => {
-  //   if (user) {
-  //     fetchRecentMessages();
-  //   }
-  // }, [user]);
-
+  const { getToken } = useAuth();
+  const fetchRecentMessages = async () => {
+    try {
+      const { data } = await api.get("/api/user/recent-messages", {
+        headers: { Authorization: `Bearer ${await getToken()}` },
+      });
+      if (data.success) {
+        const groupedMessages = data.messages.reduce((acc, message) => {
+          const senderId = message.from_user_id._id;
+          if (
+            !acc[senderId] ||
+            new Date(message.createdAt) > new Date(acc[senderId].createdAt)
+          ) {
+            acc[senderId] = message;
+          }
+          return acc;
+        }, {});
+        const sortedMessages = Object.values(groupedMessages).sort(
+          (a, b) => new Date(b.createdAt) - new Date(a.createdAt),
+        );
+        setMessages(sortedMessages);
+      } else {
+        toast.error(data.message);
+      }
+    } catch (err) {
+      toast.error(err.message);
+    }
+  };
+  useEffect(() => {
+    if (!user) return;
+    fetchRecentMessages();
+    const id = setInterval(fetchRecentMessages, 30000);
+    return () => clearInterval(id);
+  }, [user]);
   return (
     <motion.div
       className={`w-72 flex flex-col text-sm absolute top-0 -right-96 ${
