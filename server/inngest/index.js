@@ -3,6 +3,7 @@ import User from "../models/User.js";
 import connectDb from "../config/ConnectDb.js";
 import Story from "../models/Story.js";
 import Message from "../models/Message.js";
+import Connection from "../models/Connection.js";
 
 export const inngest = new Inngest({
   id: "my-app",

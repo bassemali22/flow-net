@@ -10,7 +10,11 @@ import {
   sendConnectionRequest,
   unfollowUser,
   updateUserData,
+  getUserProfile,
+  blockUser,
+  unblockUser,
 } from "../controllers/userController.js";
+import { getUserRecentMessages } from "../controllers/messageController.js";
 
 const userRouter = express.Router();
 
@@ -31,5 +35,10 @@ userRouter.post("/unfollow", protect, unfollowUser);
 userRouter.post("/connect", protect, sendConnectionRequest);
 userRouter.post("/accept", protect, acceptConnectionRequest);
 userRouter.post("/connections", protect, getUserConnections);
+userRouter.post("/profiles", protect, getUserProfile);
+userRouter.get("/recent-messages", protect, getUserRecentMessages);
+userRouter.post("/block", protect, blockUser);
+userRouter.post("/unblock", protect, unblockUser);
+userRouter.get("/:userId", protect);
 
 export default userRouter;

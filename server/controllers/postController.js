@@ -1,8 +1,10 @@
 import imageKit from "../config/imageKit.js";
 import User from "../models/User.js";
 import Post from "../models/Post.js";
+import fs from "fs";
+import { createNotification } from "./notificationController.js";
 
-const getUserData = async (userId) => {
+export const getUserData = async (userId) => {
   return (
     (await User.findById(userId)
       .select("_id full_name username profile_picture")
@@ -14,8 +16,7 @@ const getUserData = async (userId) => {
     }
   );
 };
-
-const populatePostData = async (post) => {
+export const populatePostData = async (post) => {
   const user = await getUserData(post.user);
 
   const commentsWithUser = await Promise.all(
@@ -54,6 +55,7 @@ export const addPost = async (req, res) => {
       );
     }
 
+    console.log(userId);
     const post = await Post.create({
       user: userId,
       content,
@@ -62,7 +64,7 @@ export const addPost = async (req, res) => {
     });
     res.json({ success: true, message: "Post created successfully" });
   } catch (error) {
-    console.log(error);
+    console.log(error.message);
     res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -78,7 +80,6 @@ export const getFeedPosts = async (req, res) => {
     const posts = await Post.find({
       user: { $nin: excludeIds },
     }).sort({ createdAt: -1 });
-
     const postsWithUserData = await Promise.all(
       posts.map(async (post) => await populatePostData(post)),
     );
@@ -127,6 +128,7 @@ export const likePost = async (req, res) => {
     } else {
       post.likes_count.push(userId);
       if (post.user !== userId) {
+        console.log('bassem')
         await createNotification({
           userId: post.user,
           fromUserId: userId,

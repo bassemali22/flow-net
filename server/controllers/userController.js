@@ -2,6 +2,8 @@ import { asyncWrapProviders } from "async_hooks";
 import imageKit from "../config/imageKit.js";
 
 import User from "../models/User.js";
+import Post from "../models/Post.js";
+import Connection from "../models/Connection.js";
 import fs from "fs";
 
 //get user data using userId
@@ -65,38 +67,43 @@ export const updateUserData = async (req, res) => {
 
     if (profile) {
       const buffer = fs.readFileSync(profile.path);
+
       const response = await imageKit.upload({
         file: buffer,
-        filename: profile.originalname,
+        fileName: profile.originalname,
       });
+
       const url = imageKit.url({
         path: response.filePath,
         transformation: [
           { quality: "auto" },
           { quality: "webp" },
-          { quality: "512" },
+          { width: "512" },
         ],
       });
+
       updatedData.profile_picture = url;
     }
 
     if (cover) {
       const buffer = fs.readFileSync(cover.path);
+
       const response = await imageKit.upload({
         file: buffer,
-        filename: cover.originalname,
+        fileName: cover.originalname,
       });
+
       const url = imageKit.url({
         path: response.filePath,
         transformation: [
           { quality: "auto" },
           { quality: "webp" },
-          { quality: "1280" },
+          { width: "1280" },
         ],
       });
+
       updatedData.cover_photo = url;
     }
-
     const user = await User.findByIdAndUpdate(userId, updatedData, {
       new: true,
     });
@@ -247,9 +254,14 @@ export const getUserConnections = async (req, res) => {
     const user = await User.findById(userId).populate(
       "connections followers following",
     );
-    const connections = user.connections;
-    const followers = user.followers;
-    const following = user.following;
+    if (!user) {
+      return res
+        .status(404)
+        .json({ success: false, message: "user not found" });
+    }
+    const connections = user.connections || [];
+    const followers = user.followers || [];
+    const following = user.following || [];
     const pendingConnections = (
       await Connection.find({ to_user_id: userId, status: "pending" })
     )
@@ -295,6 +307,118 @@ export const acceptConnectionRequest = async (req, res) => {
     res.json({ success: true, message: "connection accepted successfully" });
   } catch (error) {
     console.log(error.message);
+    res.json({ success: false, message: error.message });
+  }
+};
+
+// ======= Get Profile =======
+
+export const getUserProfile = async (req, res) => {
+  try {
+    const { profileId } = req.body;
+
+    if (!profileId) {
+      return res.status(400).json({
+        success: false,
+        message: "profileId is required",
+      });
+    }
+
+    const profileDoc = await User.findById(profileId);
+
+    console.log("PROFILE FROM DB:", profileDoc);
+
+    if (!profileDoc) {
+      return res.status(404).json({
+        success: false,
+        message: "profile not found",
+      });
+    }
+
+    const profile = profileDoc.toObject();
+
+    const { userId } = req.auth();
+
+    console.log("CURRENT USER:", userId);
+
+    const currentUser = await User.findById(userId);
+
+    console.log("CURRENT USER DATA:", currentUser);
+
+    const isBlocked =
+      currentUser?.blockedUsers?.includes(String(profile._id)) ||
+      profile?.blockedUsers?.includes(String(userId));
+
+    let posts = [];
+
+    if (!isBlocked) {
+      posts = await Post.find({
+        user: profileId,
+      })
+        .sort({ createdAt: -1 })
+        .populate("user", "_id full_name username profile_picture");
+    }
+
+    delete profile.blockedUsers;
+
+    console.log("PROFILE:", profile);
+    console.log("POSTS:", posts);
+
+    res.json({
+      success: true,
+      profile,
+      posts,
+      isBlocked,
+    });
+  } catch (error) {
+    console.log("❌ ERROR:", error);
+
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+// ======== Block User ========
+
+export const blockUser = async (req, res) => {
+  try {
+    const { userId } = req.auth();
+    const { userIdToBlock } = req.body;
+    const currentUser = await User.findById(userId);
+    if (!currentUser.blockedUsers.includes(userIdToBlock)) {
+      currentUser.blockedUsers.push(userIdToBlock);
+      await currentUser.save();
+    }
+    return res.json({
+      success: true,
+      message: "User blocked successfully",
+      blockedUsers: currentUser.blockedUsers,
+    });
+  } catch (error) {
+    console.log(error);
+    res.json({ success: false, message: error.message });
+  }
+};
+
+// ======== Unblock User ========
+
+export const unblockUser = async (req, res) => {
+  try {
+    const { userId } = req.auth();
+    const { userIdToUnblock } = req.body;
+    const currentUser = await User.findById(userId);
+    currentUser.blockedUsers = currentUser.blockedUsers.filter(
+      (id) => String(id) !== String(userIdToUnblock),
+    );
+    await currentUser.save();
+    return res.json({
+      success: true,
+      message: "User unblocked successfully",
+      blockedUsers: currentUser.blockedUsers,
+    });
+  } catch (error) {
+    console.log(error);
     res.json({ success: false, message: error.message });
   }
 };
