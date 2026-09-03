@@ -9,6 +9,7 @@ import {
   Users,
   Sidebar as SidebarIcon,
   Layers,
+  UserSquare2,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { UserButton, useClerk } from "@clerk/clerk-react";
@@ -85,7 +86,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
           to="/groups/joined"
           className="p-2 rounded-full transition-all duration-300 hover:scale-110 hover:shadow-[0_0_20px_rgba(0,255,255,0.9)]"
         >
-          <Users
+          <UserSquare2
             size={24}
             className="text-teal-400 hover:text-teal-300 transition-all"
           />
